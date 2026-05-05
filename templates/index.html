@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NexTube - Premium YouTube Downloader</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo-browser.png') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
@@ -20,8 +21,7 @@
     <div class="container">
         <header>
             <div class="logo">
-                <i class="fa-brands fa-youtube"></i>
-                <h1>Nex<span>Tube</span></h1>
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="NexTube" class="logo-img" width="280" height="72">
             </div>
             <p>Download your favorite videos in premium quality instantly.</p>
         </header>

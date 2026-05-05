@@ -9,8 +9,15 @@ import time
 
 download_tasks = {}
 
-app = Flask(__name__)
-DOWNLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'downloads')
+_ROOT = os.path.dirname(os.path.abspath(__file__))
+_STATIC_DIR = os.path.join(_ROOT, 'public', 'static')
+
+app = Flask(__name__, static_folder=_STATIC_DIR)
+
+if os.environ.get('VERCEL'):
+    DOWNLOAD_FOLDER = os.path.join('/tmp', 'nextube-downloads')
+else:
+    DOWNLOAD_FOLDER = os.path.join(_ROOT, 'downloads')
 if not os.path.exists(DOWNLOAD_FOLDER):
     os.makedirs(DOWNLOAD_FOLDER)
 
