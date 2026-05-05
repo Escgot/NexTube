@@ -21,6 +21,38 @@ else:
 if not os.path.exists(DOWNLOAD_FOLDER):
     os.makedirs(DOWNLOAD_FOLDER)
 
+
+def _youtube_ydl_opts():
+    """
+    YouTube often returns "Sign in to confirm you're not a bot" for datacenter IPs.
+    Rotating player clients helps some cases; persistent fixes usually need cookies —
+    export Netscape cookies from your browser and set YTDLP_COOKIES_FILE to that path.
+    See: https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp
+    """
+    opts = {
+        'extractor_args': {
+            'youtube': {
+                'player_client': [
+                    'android_vr',
+                    'web_safari',
+                    'web_embedded',
+                    'tv',
+                    'ios',
+                    'mweb',
+                    'android',
+                    'web',
+                ],
+            },
+        },
+    }
+    cookiefile = os.environ.get('YTDLP_COOKIES_FILE') or os.environ.get(
+        'YOUTUBE_COOKIES_FILE'
+    )
+    if cookiefile and os.path.isfile(cookiefile):
+        opts['cookiefile'] = cookiefile
+    return opts
+
+
 def cleanup_old_files():
     try:
         now = time.time()
@@ -45,6 +77,7 @@ def get_info():
 
     try:
         ydl_opts = {
+            **_youtube_ydl_opts(),
             'quiet': True,
             'skip_download': True,
         }
@@ -140,6 +173,7 @@ def download_video_thread(task_id, url, format_id, filepath_template, filename_u
 
     if format_id == 'bestaudio':
         ydl_opts = {
+            **_youtube_ydl_opts(),
             'format': 'bestaudio/best',
             'outtmpl': filepath_template,
             'quiet': True,
@@ -155,6 +189,7 @@ def download_video_thread(task_id, url, format_id, filepath_template, filename_u
     else:
         final_format = f"{format_id}+bestaudio[ext=m4a]/best" if format_id != 'best' else 'best'
         ydl_opts = {
+            **_youtube_ydl_opts(),
             'format': final_format,
             'outtmpl': filepath_template,
             'quiet': True,
