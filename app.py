@@ -6,8 +6,60 @@ import imageio_ffmpeg
 import threading
 import re
 import time
+import base64
+import tempfile
 
 download_tasks = {}
+
+_cookie_lock = threading.Lock()
+_cookiefile_memo = None  # str path, or False when resolved empty
+
+
+def _resolved_youtube_cookiefile():
+    """
+    yt-dlp cookie sources (first match wins):
+      - YTDLP_COOKIES_FILE / YOUTUBE_COOKIES_FILE: path to Netscape cookie file (local dev).
+      - YTDLP_COOKIES_B64: base64 of that file (best for Vercel env vars).
+      - YTDLP_COOKIES: raw file contents (multiline; fragile in some dashboards).
+    """
+    global _cookiefile_memo
+    with _cookie_lock:
+        if _cookiefile_memo is not None:
+            return _cookiefile_memo if _cookiefile_memo is not False else None
+
+        path = os.environ.get('YTDLP_COOKIES_FILE') or os.environ.get(
+            'YOUTUBE_COOKIES_FILE'
+        )
+        if path and os.path.isfile(path):
+            _cookiefile_memo = path
+            return path
+
+        text = None
+        b64 = os.environ.get('YTDLP_COOKIES_B64')
+        if b64:
+            try:
+                text = base64.standard_b64decode(b64.strip()).decode('utf-8')
+            except Exception:
+                text = None
+        if text is None:
+            raw = os.environ.get('YTDLP_COOKIES')
+            if raw:
+                text = raw
+
+        if text and len(text.strip()) > 20:
+            tmp = os.path.join(tempfile.gettempdir(), 'nextube-ytdlp-cookies.txt')
+            try:
+                with open(tmp, 'w', encoding='utf-8', newline='\n') as f:
+                    f.write(text.replace('\r\n', '\n'))
+                    if not text.endswith('\n'):
+                        f.write('\n')
+                _cookiefile_memo = tmp
+                return tmp
+            except OSError:
+                pass
+
+        _cookiefile_memo = False
+        return None
 
 _ROOT = os.path.dirname(os.path.abspath(__file__))
 _STATIC_DIR = os.path.join(_ROOT, 'public', 'static')
@@ -25,9 +77,13 @@ if not os.path.exists(DOWNLOAD_FOLDER):
 def _youtube_ydl_opts():
     """
     YouTube often returns "Sign in to confirm you're not a bot" for datacenter IPs.
-    Rotating player clients helps some cases; persistent fixes usually need cookies —
-    export Netscape cookies from your browser and set YTDLP_COOKIES_FILE to that path.
-    See: https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp
+    Rotating player clients rarely fixes cloud hosts; you need browser cookies.
+
+    Local: set YTDLP_COOKIES_FILE to a Netscape cookie file.
+    Vercel: set YTDLP_COOKIES_B64 (base64 of that file) in Project → Settings → Environment Variables.
+
+    Docs: https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp
+         https://github.com/yt-dlp/yt-dlp/wiki/Extractors#exporting-youtube-cookies
     """
     opts = {
         'extractor_args': {
@@ -45,11 +101,9 @@ def _youtube_ydl_opts():
             },
         },
     }
-    cookiefile = os.environ.get('YTDLP_COOKIES_FILE') or os.environ.get(
-        'YOUTUBE_COOKIES_FILE'
-    )
-    if cookiefile and os.path.isfile(cookiefile):
-        opts['cookiefile'] = cookiefile
+    cf = _resolved_youtube_cookiefile()
+    if cf:
+        opts['cookiefile'] = cf
     return opts
 
 
